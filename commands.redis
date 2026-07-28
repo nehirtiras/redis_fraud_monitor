@@ -1,0 +1,108 @@
+# ============================================================
+# Real-Time Card Fraud Velocity Monitoring with Redis
+# Manual Redis CLI Demo Commands
+# ============================================================
+
+FLUSHDB
+
+# ------------------------------------------------------------
+# INSERT: Create card/customer profiles using Redis Hash
+# ------------------------------------------------------------
+
+HSET card:1001 name "Nehir Tiras" segment "Retail" city "Istanbul" status "active" limit 50000
+HSET card:1002 name "Pinar Yilmaz" segment "Retail" city "Ankara" status "active" limit 40000
+HSET card:1003 name "Mert Kaya" segment "Premium" city "Izmir" status "active" limit 100000
+HSET card:1004 name "Elif Demir" segment "Retail" city "Bursa" status "active" limit 30000
+HSET card:1005 name "Can Aydin" segment "Corporate" city "Istanbul" status "active" limit 200000
+
+# ------------------------------------------------------------
+# INSERT: Sorted Set for risk scores
+# ------------------------------------------------------------
+
+ZADD risk_scores 15 card:1001
+ZADD risk_scores 8 card:1002
+ZADD risk_scores 25 card:1003
+ZADD risk_scores 5 card:1004
+ZADD risk_scores 30 card:1005
+
+# ------------------------------------------------------------
+# INSERT: Sets for city and segment grouping
+# ------------------------------------------------------------
+
+SADD city:Istanbul card:1001 card:1005
+SADD city:Ankara card:1002
+SADD city:Izmir card:1003
+SADD city:Bursa card:1004
+
+SADD segment:Retail card:1001 card:1002 card:1004
+SADD segment:Premium card:1003
+SADD segment:Corporate card:1005
+
+# ------------------------------------------------------------
+# INSERT: Transaction events using Redis Stream
+# ------------------------------------------------------------
+
+XADD transactions:stream * card_id 1001 amount 1250 merchant "Electronics Store" city "Istanbul" country "TR" channel "POS"
+XADD transactions:stream * card_id 1003 amount 8500 merchant "Luxury Hotel" city "Dubai" country "AE" channel "ECOM"
+XADD transactions:stream * card_id 1005 amount 30000 merchant "B2B Supplier" city "Istanbul" country "TR" channel "POS"
+
+# ------------------------------------------------------------
+# READ: Read card profile and risk score
+# ------------------------------------------------------------
+
+HGETALL card:1001
+ZSCORE risk_scores card:1001
+
+# ------------------------------------------------------------
+# UPDATE: Increase risk score and update status
+# ------------------------------------------------------------
+
+ZINCRBY risk_scores 35 card:1003
+HSET card:1003 status "under_review"
+SADD suspicious_cards card:1003
+
+# ------------------------------------------------------------
+# TTL / Velocity Monitoring
+# ------------------------------------------------------------
+
+INCR velocity:1003
+EXPIRE velocity:1003 60
+INCR velocity:1003
+INCR velocity:1003
+GET velocity:1003
+TTL velocity:1003
+
+# ------------------------------------------------------------
+# ADVANCED QUERY 1: Top risky cards
+# ------------------------------------------------------------
+
+ZREVRANGE risk_scores 0 4 WITHSCORES
+
+# ------------------------------------------------------------
+# ADVANCED QUERY 2: Risk rank of one card
+# ------------------------------------------------------------
+
+ZREVRANK risk_scores card:1003
+ZSCORE risk_scores card:1003
+
+# ------------------------------------------------------------
+# ADVANCED QUERY 3: Latest transaction events
+# ------------------------------------------------------------
+
+XREVRANGE transactions:stream + - COUNT 5
+
+# ------------------------------------------------------------
+# ADVANCED QUERY 4: Segment and city intersection
+# ------------------------------------------------------------
+
+SINTER city:Istanbul segment:Corporate
+
+# ------------------------------------------------------------
+# DELETE: Remove from suspicious list and delete velocity key
+# ------------------------------------------------------------
+
+SREM suspicious_cards card:1003
+DEL velocity:1003
+
+SMEMBERS suspicious_cards
+GET velocity:1003

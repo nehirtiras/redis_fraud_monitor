@@ -1,0 +1,7 @@
+services:
+  redis:
+    image: redis:7
+    container_name: bonus-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
